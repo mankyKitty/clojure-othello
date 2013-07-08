@@ -12,7 +12,10 @@ with the code. I will update this as much as I can.
 
 ## Usage
 
-This would probably work after I actually compile it into a Jar. >.>
+This would probably work after I actually compile it into a jar, or
+you could clone the repo and compile it into a jar and see how far you
+get. Although I suspect the fact that it does nothing but still say
+"Hello" isn't really what you're after.
 
     $ java -jar othello-0.1.0-standalone.jar [args]
 
