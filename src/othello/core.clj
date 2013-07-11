@@ -22,6 +22,18 @@
   ;; placing the starting pieces.
   (* (- (/ n 2) 1) (+ n 1)))
 
+(defn calc-move [sq max func]
+  ;; Given a starting place, board edge size and
+  ;; direction - return the next square in that
+  ;; direction.
+  (let [new-sq ((func moves) sq max)]
+    (when (and (> new-sq 0) (< new-sq (* max max))) 
+      {:dir func :sqr new-sq})))
+
+(defn get-moves [sq max]
+  ;; From a given starting place, find the valid directions.
+  (filter #(not (nil? %)) (map #(calc-move sq max %) (keys moves))))
+
 (defn starting-places [n]
   ;; Get the locations of our starting pieces
   (let [start (centre-top-left n)]
@@ -56,10 +68,12 @@
     (parse-row-input input max)
     (parse-col-input input max)))
 
-(defn declare-move [row col max]
+(defn convert-move-input [row col max]
   ;; take a row and column and convert it
   ;; to a piece placement location.
-  (+ (* max (- row 1)) (- (int col) upper-case-char-int)))
+  (let [r (parse-input row :row max)
+        c (parse-input col :col max)]
+    (+ (* max (- r 1)) (- c upper-case-char-int))))
 
 (defn create-square [start-locations location]
   ;; The order of the given start locations is important
@@ -82,7 +96,7 @@
   ;; Given a square status, a list of squares and a current play
   ;; board, filter the list of squares to ones that match the
   ;; predicate or nil if there is nothing.
-  (not-empty (filter #(not (= pred (:status (nth board (:sqr %))))) coll)))
+  (not-empty (filter #(not= pred (:status (nth board (:sqr %)))) coll)))
 
 (defn any-adjacent-tiles [moves board]
   ;; Using our status filter, find if there are any adjacent tiles
@@ -100,6 +114,25 @@
   ;; the placement of the initial four pieces.
   (let [locations (starting-places n)]
     (map #(create-square locations %) (range 0 (* n n)))))
+
+(defn flippables-for-direction [player sqr dir board max]
+  ;; Testing ideas.. this doesn't work but it's helping..
+  (loop [tile sqr
+         flips []
+         m max
+         b board
+         d dir]
+    (if (nil? tile)
+      flips
+      (when (and (not= :empty (:status (nth b tile)))
+                 (not= player (:status (nth b tile))))
+        (recur (:sqr (calc-move tile m d)) (conj flips tile) m b d)))))
+
+(defn squares-to-flip [player row col-char max board]
+  ;; Okay this is cool...
+  (let [target (convert-move-input row col-char max)
+        all-moves (get-moves target max)]
+    (any-opp-colour-adjacent player (any-adjacent-tiles all-moves board) board)))
 
 (defn print-col-headings [n]
   ;; Nicely spaced letters!
@@ -125,18 +158,6 @@
     (doseq [sqr row]
       (print (str ((:status sqr) square-states) " | ")))
     (print "\n")))
-
-(defn calc-move [sq max func]
-  ;; Given a starting place, board edge size and
-  ;; direction - return the next square in that
-  ;; direction.
-  (let [new-sq ((func moves) sq max)]
-    (when (and (> new-sq 0) (< new-sq (* max max))) 
-      {:dir func :sqr new-sq})))
-
-(defn get-moves [sq max]
-  ;; From a given starting place, find the valid directions.
-  (filter #(not (nil? %)) (map #(calc-move sq max %) (keys moves))))
 
 (defn -main
   "I don't do a whole lot ... yet."
