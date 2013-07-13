@@ -115,21 +115,15 @@
   (let [locations (starting-places n)]
     (map #(create-square locations %) (range 0 (* n n)))))
 
-(defn flippables-for-direction [player sqr dir board max]
-  ;; Testing ideas.. this doesn't work but it's helping..
-  (loop [tile sqr
-         flips []
-         m max
-         b board
-         d dir]
-    (if (nil? tile)
-      flips
-      (when (and (not= :empty (:status (nth b tile)))
-                 (not= player (:status (nth b tile))))
-        (recur (:sqr (calc-move tile m d)) (conj flips tile) m b d)))))
+(defn move-sequence [start direction max]
+  ;; Return a lazy sequence of every tile in a given direction that
+  ;; ends when there are no more valid moves in that direction. Does
+  ;; not take into account the status of the tiles. Don't be greedy :(
+  (take-while identity (iterate #(:sqr (calc-move % max direction)) start)))
 
 (defn squares-to-flip [player row col-char max board]
-  ;; Okay this is cool...
+  ;; Take player input and get a list of the valid directions that the
+  ;; player is allowed to move.
   (let [target (convert-move-input row col-char max)
         all-moves (get-moves target max)]
     (any-opp-colour-adjacent player (any-adjacent-tiles all-moves board) board)))
