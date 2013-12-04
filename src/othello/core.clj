@@ -1,5 +1,5 @@
 (ns othello.core
-  (:use [clojure.string :only [join]]
+  (:use [clojure.string :only [join split upper-case]]
         [clojure.core.match :only (match)])
   (:gen-class))
 
@@ -71,7 +71,7 @@
 
 (defn parse-col-input [c max]
   (when (or (char? c) (string? c))
-    (let [col (first (.getBytes (clojure.string/upper-case c)))]
+    (let [col (first (.getBytes (upper-case c)))]
       (when (and (>= col upper-case-char-int)
                  (<= col (+ upper-case-char-int max)))
         ;; Pass the tests and it's okay.
@@ -180,43 +180,46 @@
 
 (defn squares-to-flip [starting-places board max player]
   ;; Get a list of the squares that have tiles we want to flip.
-  (let [[fst & rest] (flatten (map #(get-flippable-tiles board max player %) starting-places))]
-    (merge fst rest)))
+  (let [[fst & others] (flatten (map #(get-flippable-tiles board max player %) starting-places))]
+    (if (empty? others)
+      fst
+      (merge fst others))))
 
 (defn process-input [s]
   ;; Take the read-line input and get something we can try to use as
   ;; valid move input.
-  (let [[row col] (filter #(not= "" %) (clojure.string/split s #""))]
-    [row col]))
+  (filter #(not= "" %) (split s #"")))
+
+(defn update-display [player current-board max]
+  (do
+    ;; Display the latest board.
+    (print-board current-board max)
+    ;; Ask the current player for their desired move.
+    (println (str (printable-name player) " Player's Turn!"))
+    (println "Enter Row and Column Number (eg. 3d):")))
+
+(defn game-loop [max board]
+  (loop [game-board board
+         player :black
+         turn 0]
+    (update-display player game-board max)
+    ;; Try to do something with it all.
+    ;; If we have a parse-able input that isn't a quit instruction
+    ;; and that move produces a valid change on the board THEN we want to
+    ;; actually progress the game forward.
+    (let [[row col] (process-input (read-line))
+          sqr (valid-move-directions player (Integer/parseInt row) col max game-board)
+          placement (convert-move-input (Integer/parseInt row) col max)
+          flip (squares-to-flip sqr game-board max player)
+          all-moves (merge flip {{:status :empty :sqr placement} {:status player :sqr placement}})]
+      ;; Assuming we have a valid placement, try to make the move(s).
+      ;; Before looping the board I have to replace any changing squares that
+      ;; have resulted from any new moves. The result of a move is
+      (recur (replace all-moves game-board) (switch-player player) (inc turn)))))
 
 (defn -main [& args]
   ;; work around dangerous default behaviour in Clojure
   (alter-var-root #'*read-eval* (constantly false))
   (let [max 8
         board (make-board max)]
-    (loop [game-board board
-           player :black
-           turn 0]
-      ;; Display the latest board.
-      (print-board game-board max)
-      ;; Ask the current player for their desired move.
-      (println (str (printable-name player) " Player's Turn!"))
-      (println "Enter Row and Column Number (eg. 3d):")
-      ;; Try to do something with it all.
-      ;; If we have a parse-able input that isn't a quit instruction
-      ;; and that move produces a valid change on the board THEN we want to
-      ;; actually progress the game forward.
-      (let [[row col] (process-input (read-line))
-            sqr (valid-move-directions player (Integer/parseInt row) col max game-board)
-            placement (convert-move-input (Integer/parseInt row) col max)
-            flip (squares-to-flip sqr game-board max player)
-            all-moves (merge flip {{:status :empty :sqr placement} {:status player :sqr placement}})]
-        ;; Assuming we have a valid placement, try to make the move(s).
-        (println all-moves)
-        (println flip)
-        (when (< turn 5)
-          ;; Before looping the board I have to replace any changing squares that
-          ;; have resulted from any new moves. The result of a move is
-          (recur (replace all-moves game-board) (switch-player player) (inc turn))))
-      ;; Check victory conditions and then move on to the next player turns.
-      )))
+    (game-loop max board)))
