@@ -12,12 +12,22 @@ with the code. I will update this as much as I can.
 
 ## Usage
 
-This would probably work after I actually compile it into a jar, or
-you could clone the repo and compile it into a jar and see how far you
-get. Although I suspect the fact that it does nothing but still say
-"Hello" isn't really what you're after.
+Something like ```lein trampoline run``` should have you up and
+running. This assumes you have ```leiningen``` installed and all
+happy.
 
-    $ java -jar othello-0.1.0-standalone.jar [args]
+The game will start with the black player making the first move and
+the on it goes. The input for the turns as the game will tell you is
+ROW then COLUMN. So ```3d```, for example.
+
+Basically nearly anything including giving it a stern look will make
+it crap itself, so be gentle and enjoy.
+
+Also the moves algorithms are still kinda broken in some
+circumstances, so don't be surprised if things go a little wonky.
+
+In fact there are a lot of things missing but hey, it's Othello and
+Clojure so it's awesome be association. \o/
 
 ## Options
 
@@ -39,7 +49,7 @@ Current output for an 8x8 board, isn't it PRETTY!
 ```
 ### Bugs
 
-...It's not even finished in alpha stage yet!
+*cough*__Lots__*cough*
 
 ## License
 
