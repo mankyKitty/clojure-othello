@@ -137,7 +137,7 @@
   ;; Return a lazy sequence of every tile in a given direction that
   ;; ends when there are no more valid moves in that direction. Does
   ;; not take into account the status of the tiles. Don't be greedy :(
-  (take-while identity (iterate #(:sqr (calc-move % max direction)) start)))
+  (lazy-seq (take-while identity (iterate #(:sqr (calc-move % max direction)) start))))
 
 (defn valid-move-directions [player row col-char max board]
   ;; Take player input and get a list of the valid directions that the
@@ -171,19 +171,36 @@
       (print (str ((:status sqr) square-states) " | ")))
     (print "\n")))
 
+(defn create-board-adjustment [moves player]
+  (for [{:keys [status sqr] :as original} moves
+        :while (and (not= :empty status) (not= player status))]
+    (hash-map original {:status (switch-player status) :sqr sqr})))
+
+(defn move-sequence-valid? [moves player]
+  (let [b-or-w? (fn [x] (or (= :white x) (= :black x)))
+        until-empty (take-while #(b-or-w? (:status %)) moves)]
+    (= player (:status (last until-empty)))))
+
 (defn get-flippable-tiles [board max player start]
-  ;; From a given starting square, create a list of the tiles that are
-  ;; fippable.
-  (for [{:keys [status sqr] :as original} (map #(nth board %) (move-sequence (:sqr start) (:dir start) max))
-         :while (not= player status)]
-     (hash-map original {:status (switch-player status) :sqr sqr})))
+  ;; From a given starting square, create a list of the tiles that are fippable.
+  (let [moves (->> (move-sequence (:sqr start) (:dir start) max)
+                   (sort-by :sqr)
+                   (map #(nth board %)))]
+    (when (move-sequence-valid? moves player)
+      (create-board-adjustment moves player))))
 
 (defn squares-to-flip [starting-places board max player]
   ;; Get a list of the squares that have tiles we want to flip.
-  (let [[fst & others] (flatten (map #(get-flippable-tiles board max player %) starting-places))]
-    (if (empty? others)
-      fst
-      (merge fst others))))
+  (let [[fst & others] (->> starting-places
+                            (map #(get-flippable-tiles board max player %))
+                            (filter identity)
+                            (flatten))]
+    (println "squares-to-flip")
+    (println fst)
+    (println others)
+    (if (seq others)
+      (apply merge fst others)
+      fst)))
 
 (defn process-input [s]
   ;; Take the read-line input and get something we can try to use as
