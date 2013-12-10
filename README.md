@@ -54,7 +54,10 @@ Enter Row and Column Number (eg. 3d) or Q/q to quit:
 ```
 ### Bugs
 
-*cough*__Lots__*cough*
+* No victory condition checking.
+* Input handling is mediocre and there is no real reporting back to the user about what they've done.
+* Lack of proper tests.
+* ASCII is cool and all, but ClojureScript/Elm/SDL beckon... Future is a web game.
 
 ## License
 
