@@ -1,5 +1,5 @@
 (ns othello.core
-  (:use [clojure.string :only [join split upper-case]]
+  (:use [clojure.string :only [join split upper-case lower-case]]
         [clojure.core.match :only (match)])
   (:gen-class))
 
@@ -176,18 +176,24 @@
         :while (and (not= :empty status) (not= player status))]
     (hash-map original {:status (switch-player status) :sqr sqr})))
 
-(defn move-sequence-valid? [moves player]
-  (let [b-or-w? (fn [x] (or (= :white x) (= :black x)))
-        until-empty (take-while #(b-or-w? (:status %)) moves)]
-    (= player (:status (last until-empty)))))
+(defn determine-valid-flips [moves player]
+  (let [partitioned (partition-by #(= (switch-player player) (:status %)) moves)]
+    (loop [[flips cap & xs] partitioned
+           acc ()]
+      (if (or (not (seq flips)) ;; We have nothing new to add to the acc
+              (not (seq cap)) ;; Our list cannot be ended with the players colour
+              (not= player (:status (first cap))) ;; The first part of the cap is not the current player
+              (= :empty (:status (first cap)))) ;; Our list is out of pieces
+        acc ;; Give back the list of tiles that are to be flipped
+        (recur xs (apply conj acc flips))))))
 
 (defn get-flippable-tiles [board max player start]
   ;; From a given starting square, create a list of the tiles that are fippable.
   (let [moves (->> (move-sequence (:sqr start) (:dir start) max)
                    (sort-by :sqr)
                    (map #(nth board %)))]
-    (when (move-sequence-valid? moves player)
-      (create-board-adjustment moves player))))
+    (when-let [valid-moves (determine-valid-flips moves player)]
+      (create-board-adjustment valid-moves player))))
 
 (defn squares-to-flip [starting-places board max player]
   ;; Get a list of the squares that have tiles we want to flip.
@@ -202,10 +208,15 @@
       (apply merge fst others)
       fst)))
 
+(defn parse-int [s]
+  (try (Integer/parseInt s)
+    (catch NumberFormatException e nil)))
+
 (defn process-input [s]
   ;; Take the read-line input and get something we can try to use as
   ;; valid move input.
-  (filter #(not= "" %) (split s #"")))
+  (let [[row col] (filter #(not= "" %) (split s #""))]
+    [(parse-int row) col]))
 
 (defn update-display [player current-board max]
   (do
@@ -213,7 +224,21 @@
     (print-board current-board max)
     ;; Ask the current player for their desired move.
     (println (str (printable-name player) " Player's Turn!"))
-    (println "Enter Row and Column Number (eg. 3d):")))
+    (println "Enter Row and Column Number (eg. 3d) or Q/q to quit:")))
+
+(defn get-initial-placement [row col max brd]
+  (when (and (not (nil? row))
+             (not (nil? col))
+             (number? row))
+    (let [plc (convert-move-input row col max)]
+      (when (= :empty (:status (nth brd plc)))
+        plc))))
+
+(defn quitting? [row col]
+  (cond
+    (nil? row) (= "q" (lower-case col))
+    (nil? col) (= "q" (lower-case row))
+    :else false))
 
 (defn game-loop [max board]
   (loop [game-board board
@@ -224,15 +249,24 @@
     ;; If we have a parse-able input that isn't a quit instruction
     ;; and that move produces a valid change on the board THEN we want to
     ;; actually progress the game forward.
-    (let [[row col] (process-input (read-line))
-          sqr (valid-move-directions player (Integer/parseInt row) col max game-board)
-          placement (convert-move-input (Integer/parseInt row) col max)
-          flip (squares-to-flip sqr game-board max player)
-          all-moves (merge flip {{:status :empty :sqr placement} {:status player :sqr placement}})]
-      ;; Assuming we have a valid placement, try to make the move(s).
-      ;; Before looping the board I have to replace any changing squares that
-      ;; have resulted from any new moves. The result of a move is
-      (recur (replace all-moves game-board) (switch-player player) (inc turn)))))
+    (let [player-input (read-line)
+          [row col] (process-input player-input)]
+
+      (if-let [placement (get-initial-placement row col max game-board)]
+
+        (let [sqr (valid-move-directions player row col max game-board)
+              flip (squares-to-flip sqr game-board max player)
+
+              all-moves (merge flip {{:status :empty :sqr placement}
+                                     {:status player :sqr placement}})]
+          ;; Assuming we have a valid placement, try to make the move(s).
+          ;; Before looping the board I have to replace any changing squares that
+          ;; have resulted from any new moves. The result of a move is
+          (recur (replace all-moves game-board) (switch-player player) (inc turn)))
+
+        (if (= "q" player-input)
+          (println "Quitting...")
+          (recur game-board player turn))))))
 
 (defn -main [& args]
   ;; work around dangerous default behaviour in Clojure
