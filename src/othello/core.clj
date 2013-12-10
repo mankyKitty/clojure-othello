@@ -263,7 +263,7 @@
     (let [player-input (read-line)
           [row col] (process-input player-input)]
 
-      (if-let [[placement dirs] (get-initial-placement row col game-board max player)]
+      (if-let [[placement dirs] (get-placement-and-directions row col game-board max player)]
 
         (let [flip (squares-to-flip dirs game-board max player)
               all-moves (merge flip {{:status :empty :sqr placement}

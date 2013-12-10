@@ -3,7 +3,7 @@
 This is a Clojure implementation of the incredibly awesome Othello
 board game. I plan on making this into a ClojureScript project, as
 well as maybe a desktop OpenGL version just as an excuse to play with
-OpenGL because...it's OpenGL. 
+OpenGL because...it's OpenGL.
 
 ## Installation
 
@@ -37,15 +37,20 @@ Initial Options I might put in a conf file of some description.
 
 Current output for an 8x8 board, isn't it PRETTY!
 ```
+Scores !
+Black : 2
+White : 2
     A   B   C   D   E   F   G   H
- 1|   |   |   |   |   |   |   |   | 
- 2|   |   |   |   |   |   |   |   | 
- 3|   |   |   |   |   |   |   |   | 
- 4|   |   |   | W | B |   |   |   | 
- 5|   |   |   | B | W |   |   |   | 
- 6|   |   |   |   |   |   |   |   | 
- 7|   |   |   |   |   |   |   |   | 
- 8|   |   |   |   |   |   |   |   | 
+ 1|   |   |   |   |   |   |   |   |
+ 2|   |   |   |   |   |   |   |   |
+ 3|   |   |   |   |   |   |   |   |
+ 4|   |   |   | W | B |   |   |   |
+ 5|   |   |   | B | W |   |   |   |
+ 6|   |   |   |   |   |   |   |   |
+ 7|   |   |   |   |   |   |   |   |
+ 8|   |   |   |   |   |   |   |   |
+Black Player's Turn!
+Enter Row and Column Number (eg. 3d) or Q/q to quit:
 ```
 ### Bugs
 
