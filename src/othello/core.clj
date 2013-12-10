@@ -201,9 +201,6 @@
                             (map #(get-flippable-tiles board max player %))
                             (filter identity)
                             (flatten))]
-    (println "squares-to-flip")
-    (println fst)
-    (println others)
     (if (seq others)
       (apply merge fst others)
       fst)))
@@ -218,21 +215,35 @@
   (let [[row col] (filter #(not= "" %) (split s #""))]
     [(parse-int row) col]))
 
-(defn update-display [player current-board max]
-  (do
-    ;; Display the latest board.
-    (print-board current-board max)
-    ;; Ask the current player for their desired move.
-    (println (str (printable-name player) " Player's Turn!"))
-    (println "Enter Row and Column Number (eg. 3d) or Q/q to quit:")))
+(defn get-player-score [brd]
+  (let [[b e w] (->> brd
+                     (sort-by :status)
+                     (partition-by :status))]
+    (hash-map :b (count b)
+              :w (count w))))
 
-(defn get-initial-placement [row col max brd]
+(defn update-display [player current-board max]
+  (let [{:keys [b w]} (get-player-score current-board)]
+    (do
+      (println "Scores !")
+      (println (str "Black : " b))
+      (println (str "White : " w))
+      ;; Display the latest board.
+      (print-board current-board max)
+      ;; Ask the current player for their desired move.
+      (println (str (printable-name player) " Player's Turn!"))
+      (println "Enter Row and Column Number (eg. 3d) or Q/q to quit:"))))
+
+(defn get-placement-and-directions [row col brd max player]
   (when (and (not (nil? row))
              (not (nil? col))
              (number? row))
-    (let [plc (convert-move-input row col max)]
-      (when (= :empty (:status (nth brd plc)))
-        plc))))
+    (let [plc (convert-move-input row col max)
+          dirs (valid-move-directions player row col max brd)]
+      (when (and
+              (= :empty (:status (nth brd plc)))
+              (seq dirs))
+        [plc dirs]))))
 
 (defn quitting? [row col]
   (cond
@@ -252,11 +263,9 @@
     (let [player-input (read-line)
           [row col] (process-input player-input)]
 
-      (if-let [placement (get-initial-placement row col max game-board)]
+      (if-let [[placement dirs] (get-initial-placement row col game-board max player)]
 
-        (let [sqr (valid-move-directions player row col max game-board)
-              flip (squares-to-flip sqr game-board max player)
-
+        (let [flip (squares-to-flip dirs game-board max player)
               all-moves (merge flip {{:status :empty :sqr placement}
                                      {:status player :sqr placement}})]
           ;; Assuming we have a valid placement, try to make the move(s).
