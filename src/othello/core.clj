@@ -25,15 +25,15 @@
 
 (defn switch-player [p]
   ;; Give the opposite player to the one given.
-  (if (= p :black)
-    :white
-    :black))
+  (match p
+         :white :black
+         :black :white))
 
 (defn printable-name [p]
   ;; Give a screen friendly version of the current player.
   (match p
-   :black "Black"
-   :white "White"))
+         :black "Black"
+         :white "White"))
 
 (defn calc-move [sq max func]
   ;; Given a starting place, board edge size and
@@ -139,11 +139,10 @@
   ;; not take into account the status of the tiles. Don't be greedy :(
   (lazy-seq (take-while identity (iterate #(:sqr (calc-move % max direction)) start))))
 
-(defn valid-move-directions [player row col-char max board]
+(defn valid-move-directions [player start-sqr max board]
   ;; Take player input and get a list of the valid directions that the
   ;; player is allowed to move.
-  (let [target (convert-move-input row col-char max)
-        all-moves (get-moves target max)]
+  (let [all-moves (get-moves start-sqr max)]
     (any-opp-colour-adjacent player (any-adjacent-tiles all-moves board) board)))
 
 (defn print-col-headings [n]
@@ -239,7 +238,7 @@
              (not (nil? col))
              (number? row))
     (let [plc (convert-move-input row col max)
-          dirs (valid-move-directions player row col max brd)]
+          dirs (valid-move-directions player plc max brd)]
       (when (and
               (= :empty (:status (nth brd plc)))
               (seq dirs))
@@ -251,6 +250,18 @@
     (nil? col) (= "q" (lower-case row))
     :else false))
 
+(defn victory-check [player board max]
+  (let [empty (filter #(= :empty (:status %)) board)
+        check-fn (fn [p] (map #(seq (valid-move-directions p (:sqr %) board max)) empty))
+        no-moves (fn [c] (every? #(= nil %) c))]
+    (when (<= (count empty) 2)
+      (let [this-player (check-fn player)
+            other-player (check-fn (switch-player player))]
+        (cond
+         (no-moves this-player) player
+         (no-moves other-player) (switch-player player)
+         :else false)))))
+
 (defn game-loop [max board]
   (loop [game-board board
          player :black
@@ -260,22 +271,29 @@
     ;; If we have a parse-able input that isn't a quit instruction
     ;; and that move produces a valid change on the board THEN we want to
     ;; actually progress the game forward.
-    (let [player-input (read-line)
-          [row col] (process-input player-input)]
+    (if-let [winner (victory-check player game-board max)]
+      (let [scores (get-player-score game-board)
+            speech (apply str "Victory Declared for: "
+                          (printable-name winner)
+                          " with "
+                          (winner scores) "points")]
+        (println speech))
+      (let [player-input (read-line)
+            [row col] (process-input player-input)]
+        
+        (if-let [[placement dirs] (get-placement-and-directions row col game-board max player)]
+          
+          (let [flip (squares-to-flip dirs game-board max player)
+                all-moves (merge flip {{:status :empty :sqr placement}
+                                       {:status player :sqr placement}})]
+            ;; Assuming we have a valid placement, try to make the move(s).
+            ;; Before looping the board I have to replace any changing squares that
+            ;; have resulted from any new moves. The result of a move is
+            (recur (replace all-moves game-board) (switch-player player) (inc turn)))
 
-      (if-let [[placement dirs] (get-placement-and-directions row col game-board max player)]
-
-        (let [flip (squares-to-flip dirs game-board max player)
-              all-moves (merge flip {{:status :empty :sqr placement}
-                                     {:status player :sqr placement}})]
-          ;; Assuming we have a valid placement, try to make the move(s).
-          ;; Before looping the board I have to replace any changing squares that
-          ;; have resulted from any new moves. The result of a move is
-          (recur (replace all-moves game-board) (switch-player player) (inc turn)))
-
-        (if (= "q" player-input)
-          (println "Quitting...")
-          (recur game-board player turn))))))
+          (if (= "q" player-input)
+            (println "Quitting...")
+            (recur game-board player turn)))))))
 
 (defn -main [& args]
   ;; work around dangerous default behaviour in Clojure
