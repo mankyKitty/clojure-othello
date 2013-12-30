@@ -65,7 +65,7 @@
 (defn parse-row-input [n max]
   (when (and (integer? n)
              (> n 0)
-             (< n max))
+             (<= n max))
     ;; Pass the tests and it's okay.
     n))
 
@@ -134,10 +134,10 @@
     (map #(create-square locations %) (range 0 (* n n)))))
 
 (defn move-sequence [start direction max]
-  ;; Return a lazy sequence of every tile in a given direction that
+  ;; Return a sequence of every tile in a given direction that
   ;; ends when there are no more valid moves in that direction. Does
   ;; not take into account the status of the tiles. Don't be greedy :(
-  (lazy-seq (take-while identity (iterate #(:sqr (calc-move % max direction)) start))))
+  (take (- max 1) (take-while identity (iterate #(:sqr (calc-move % max direction)) start))))
 
 (defn valid-move-directions [player start-sqr max board]
   ;; Take player input and get a list of the valid directions that the
@@ -175,22 +175,25 @@
         :while (and (not= :empty status) (not= player status))]
     (hash-map original {:status (switch-player status) :sqr sqr})))
 
+(defn flip-sequence-valid? [player flips cap]
+  (or (not (seq flips))                   ;; We have nothing new to add to the acc
+      (not (seq cap))                     ;; Our list cannot be ended with the players colour
+      (not= player (:status (first cap))) ;; The first part of the cap is not the current player
+      (= :empty (:status (first cap)))))  ;; Our list is out of pieces
+  
 (defn determine-valid-flips [moves player]
   (let [partitioned (partition-by #(= (switch-player player) (:status %)) moves)]
     (loop [[flips cap & xs] partitioned
            acc ()]
-      (if (or (not (seq flips)) ;; We have nothing new to add to the acc
-              (not (seq cap)) ;; Our list cannot be ended with the players colour
-              (not= player (:status (first cap))) ;; The first part of the cap is not the current player
-              (= :empty (:status (first cap)))) ;; Our list is out of pieces
+      (if (flip-sequence-valid? player flips cap)
         acc ;; Give back the list of tiles that are to be flipped
         (recur xs (apply conj acc flips))))))
 
 (defn get-flippable-tiles [board max player start]
   ;; From a given starting square, create a list of the tiles that are fippable.
   (let [moves (->> (move-sequence (:sqr start) (:dir start) max)
-                   (sort-by :sqr)
                    (map #(nth board %)))]
+    (println moves)
     (when-let [valid-moves (determine-valid-flips moves player)]
       (create-board-adjustment valid-moves player))))
 
@@ -262,6 +265,14 @@
          (no-moves other-player) (switch-player player)
          :else false)))))
 
+(defn move-and-flips [player placement dirs current-board max]
+  (merge (squares-to-flip dirs current-board max player)
+         {{:status :empty :sqr placement}
+          {:status player :sqr placement}}))
+
+(defn update-game-board [new-moves current-board]
+  (replace new-moves current-board))
+
 (defn game-loop [max board]
   (loop [game-board board
          player :black
@@ -282,15 +293,13 @@
             [row col] (process-input player-input)]
         
         (if-let [[placement dirs] (get-placement-and-directions row col game-board max player)]
-          
-          (let [flip (squares-to-flip dirs game-board max player)
-                all-moves (merge flip {{:status :empty :sqr placement}
-                                       {:status player :sqr placement}})]
-            ;; Assuming we have a valid placement, try to make the move(s).
-            ;; Before looping the board I have to replace any changing squares that
-            ;; have resulted from any new moves. The result of a move is
-            (recur (replace all-moves game-board) (switch-player player) (inc turn)))
-
+          ;; Assuming we have a valid placement, try to make the move(s).
+          ;; Before looping the board I have to replace any changing squares that
+          ;; have resulted from any new moves. The result of a move is
+          (recur (update-game-board (move-and-flips player placement dirs game-board max) game-board)
+                 (switch-player player)
+                 (inc turn))
+          ;; else
           (if (= "q" player-input)
             (println "Quitting...")
             (recur game-board player turn)))))))
